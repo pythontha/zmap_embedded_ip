@@ -138,6 +138,46 @@ zmap \
 * `--gateway-mac`: optional MAC address, may be necessary if scanning node has multiple interfaces and you are using a non-default interface
 * `$gatewaymac`: MAC address of the specified interface
 
+Dynamic DNS Query with Embedded Target IP
+---------------------
+
+We've added a ​**dynamic domain embedding** feature to the DNS probe module, enabling target IP insertion into DNS query domains. This is particularly useful for generating per-target customized domain queries.
+
+### Usage
+```bash
+zmap \
+    --probe-module=dns \
+    --probe-args="A,255.255.255.255.www.example.com" \
+    -D \
+    --target-port=53 \
+    --output-fields="*" \
+    -o results.csv
+```
+
+### Parameters
+- `--probe-args="<QTYPE>,255.255.255.255.<DOMAIN>"`  
+  - Uses `255.255.255.255` as target IP placeholder (must be four consecutive 255s)
+  - Placeholder will be replaced by actual target IP during scanning (e.g. `192.0.2.1.www.example.com`)
+- `-D`  
+  - ​**Mandatory flag** to enable dynamic IP substitution
+- Compatible with all DNS query types (A/AAAA/MX/TXT/etc)
+
+### Example Workflow
+1. ​**Command**:
+   ```bash
+   zmap -p53 -M dns \
+     --probe-args="A,255.255.255.255.auth.dns.company.net" \
+     -D -N 1000 -o dns_queries.log
+   ```
+2. ​**For target IP `a.b.c.d`** the query becomes:  
+   `a.b.c.d.auth.dns.company.net`
+
+### Notes
+- Placeholder format must be `255.255.255.255`
+- Requires DNS servers to resolve dynamically generated domains
+
+
+
 License and Copyright
 ---------------------
 
