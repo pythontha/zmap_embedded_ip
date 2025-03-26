@@ -20,6 +20,8 @@ struct state_conf zconf = {
     .cooldown_secs = 0,
     .custom_metadata_str = NULL,
     .data_link_size = 0,
+    // added by pqm
+    .dnsippadding = 0,
     .default_mode = 0,
     .dedup_method = 0,
     .dedup_window_size = 0,

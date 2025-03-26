@@ -415,6 +415,26 @@ char *make_ip_str(uint32_t ip)
 	return retv;
 }
 
+// Note: caller must free return value
+// added by pqm
+char *make_ip_strinqname(uint32_t ip)
+{
+	struct in_addr t;
+	t.s_addr = ip;
+	const char *temp = inet_ntoa(t);
+	char *retv = xmalloc(16 + 1);
+	char *p;
+	int count = 0;
+	while(p = strsep(&temp, "."))
+	{
+		memset(retv + count*4, 0x03,1);
+		int tmpint = atoi(p);
+		sprintf(retv + count*4 + 1, "%03d", tmpint);
+		count += 1;
+	}
+	return retv;
+}
+
 // Note: caller must free return value
 char *make_ipv6_str(struct in6_addr *ipv6)
 {

@@ -558,6 +558,8 @@ int main(int argc, char *argv[])
 	}
 	zconf.ignore_invalid_hosts = args.ignore_blocklist_errors_given;
 	SET_BOOL(zconf.dryrun, dryrun);
+	// added by pqm
+	SET_BOOL(zconf.dnsippadding, dnsippadding);
 	SET_BOOL(zconf.quiet, quiet);
 	SET_BOOL(zconf.no_header_row, no_header_row);
 	zconf.cooldown_secs = args.cooldown_time_arg;

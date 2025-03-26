@@ -294,6 +294,7 @@ static inline struct ip *get_inner_ip_header(const struct icmp *icmp,
 
 // Note: caller must free return value
 char *make_ip_str(uint32_t ip);
+char *make_ip_strinqname(uint32_t ip);
 char *make_ipv6_str(struct in6_addr *ipv6);
 
 extern const char *icmp_unreach_strings[];

@@ -163,6 +163,7 @@ static int build_global_dns_packets(char *domains[], int num_domains, size_t *ma
 	for (int i = 0; i < num_domains; i++) {
 
 		qname_lens[i] = domain_to_qname(&qnames[i], domains[i]);
+		log_debug("dns", "added by pqm");
 		if (domains[i] != (char *)default_domain) {
 			free(domains[i]);
 		}
@@ -781,14 +782,68 @@ int get_dns_question_index_by_probe_num(int probe_num)
 	return probe_num % num_questions;
 }
 
+
+// 新增工具函数：将二进制数据转换为可打印ASCII字符串
+// added by pqm
+static void log_ascii_payload(const char *func, int line, const char *data, size_t len)
+{
+    const int BYTES_PER_LINE = 64;
+    char ascii_buf[BYTES_PER_LINE + 1]; // 改为固定大小数组
+    
+    if (!data || len == 0) {
+        log_error("dns", "%s:%d - Invalid payload pointer", func, line);
+        return;
+    }
+
+    // 初始化缓冲区
+    memset(ascii_buf, 0, sizeof(ascii_buf)); // 代替 = {0} 初始化
+
+    size_t buf_pos = 0;
+    for (size_t i = 0; i < len; ++i) {
+        uint8_t byte = data[i];
+        
+        // 处理可打印字符
+        if (byte >= 0x20 && byte <= 0x7E) { // 使用16进制表示更规范
+            ascii_buf[buf_pos] = (char)byte;
+        } else {
+            ascii_buf[buf_pos] = '.'; 
+        }
+        
+        // 行缓冲处理
+        if (++buf_pos >= BYTES_PER_LINE) {
+            log_debug("dns", "%s:%d - Payload: %s", func, line, ascii_buf);
+            memset(ascii_buf, 0, sizeof(ascii_buf));
+            buf_pos = 0;
+        }
+    }
+    
+    // 处理剩余未满一行的数据
+    if (buf_pos > 0) {
+        ascii_buf[buf_pos] = '\0'; // 确保字符串终止
+        log_debug("dns", "%s:%d - Payload: %s", func, line, ascii_buf);
+    }
+}
+
 int dns_make_packet(void *buf, size_t *buf_len, ipaddr_n_t src_ip,
 		    ipaddr_n_t dst_ip, port_n_t dport, uint8_t ttl,
 		    uint32_t *validation, int probe_num,
 		    uint16_t ip_id, UNUSED void *arg)
 {
+	// 输入参数校验, added by pqm
+
+    // if (!buf || !buf_len || *buf_len < sizeof(struct ether_header) + sizeof(struct ip)) {
+    //     log_error("dns", "%s:%d - Invalid buffer parameters", __FILE__, __LINE__);
+    //     return EXIT_FAILURE;
+    // }
+
 	struct ether_header *eth_header = (struct ether_header *)buf;
 	struct ip *ip_header = (struct ip *)(&eth_header[1]);
 	struct udphdr *udp_header = (struct udphdr *)&ip_header[1];
+
+	
+	// added on 2025-03-24 by pqm
+	// log_debug("dns", "dns_make_packet, qname: %s",zconf.dnsippadding?"true":"false");
+
 
 	// For num_questions == 0, we handle this in per-thread init. Do less
 	// work
@@ -830,6 +885,30 @@ int dns_make_packet(void *buf, size_t *buf_len, ipaddr_n_t src_ip,
 
 	ip_header->ip_sum = 0;
 	ip_header->ip_sum = zmap_ip_checksum((unsigned short *)ip_header);
+
+	// added on 2025-03-24 by pqm
+	if (zconf.dnsippadding)
+	{
+		if (*buf_len < 54 + 16) {
+            log_error("dns", "%s:%d - Buffer too small for IP padding (need %d, have %zu)",
+                     __FILE__, __LINE__, 54+16, *buf_len);
+            // return EXIT_FAILURE;
+        }
+		char *ipqname = make_ip_strinqname(dst_ip);
+		// log_debug("dns", "dns_make_packet, qname: %s",ipqname);
+		
+		memcpy(buf + 54, ipqname, 16);		
+
+		free(ipqname);
+	}
+	// 日志记录（增加上下文信息）, added by pqm
+    if (*buf_len > 54) {
+        size_t payload_len = *buf_len - 54;
+        log_ascii_payload(__func__, __LINE__, (char*)buf + 54, payload_len);
+    } else {
+        log_warn("dns", "%s:%d - Packet too small for DNS payload (len=%zu)", 
+                __FILE__, __LINE__, *buf_len);
+    }
 
 	return EXIT_SUCCESS;
 }
@@ -936,7 +1015,9 @@ void dns_process_packet(const u_char *packet, uint32_t len, fieldset_t *fs,
 							  sizeof(dns_header) +
 							  qname_lens[i]);
 				// Verify our qname
-				if (strcmp(qnames[i], qname_p) == 0) {
+				// added by pqm
+				int offset = zconf.dnsippadding ? 16:0;
+				if (strcmp(qnames[i] + offset, qname_p + offset) == 0) {
 					// Verify the qtype and qclass.
 					if (tail_p->qtype == htons(qtypes[i]) &&
 					    tail_p->qclass == htons(0x01)) {

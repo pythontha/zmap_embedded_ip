@@ -135,6 +135,8 @@ struct state_conf {
 	char *ipv6_source_ip;
 	char *ipv6_target_filename;
 	int data_link_size;
+	// added by pqm
+	int dnsippadding;
 	int default_mode;
 	int no_header_row;
 	int dedup_method;
